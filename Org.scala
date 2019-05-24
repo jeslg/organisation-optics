@@ -124,5 +124,20 @@ class Logic[Repr[_], Obs[_]](implicit
     departments >>> filtered(employees.all((tasks >>> tsk).elem(u))) >>> dpt
 
   def expertise(u: String): Obs[Org => List[String]] = expertiseFl(u).getAll
+
+  def expertsFl(u: String): Repr[Org => List[String]] =
+    departments >>> 
+      filtered(employees.all((tasks >>> tsk).elem(u))) >>>
+      employees >>>
+      emp
+
+  def experts(u: String): Obs[Org => List[String]] = expertsFl(u).getAll
+
+  def experts2Fl(u: String): Repr[Fold[Org, Employee]] =
+    departments >>>
+      filtered(employees.all((tasks >>> tsk).elem(u))) >>>
+      employees
+
+  def experts2(u: String): Obs[Org => List[Employee]] = experts2Fl(u).getAll
 }
 
