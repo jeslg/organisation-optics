@@ -1,6 +1,9 @@
 package dev.habla
 
 import Optica._
+import Model._
+import Optica.syntax._
+import Project.syntax._
 import Schema.syntax._
 
 case class DepartmentRel(dpt: String)
@@ -102,19 +105,44 @@ object Main extends App {
       P: Project[Repr]): Repr[Org] = {
     import T._, S._, P.{Department, Employee, Task}
     foreach(table_department)(d =>
-        yields(Department(d.dpt, foreach(table_employee)(e =>
-            where(equal(d.dpt, e.dpt_fk))(
-              yields(Employee(e.emp, foreach(table_task)(t =>
-                  where(equal(e.emp, t.emp_fk))(
-                    yields(Task(t.tsk)))))))))))
+      yields(Department(d.dpt, foreach(table_employee)(e =>
+        where(equal(d.dpt, e.dpt_fk))(
+          yields(Employee(e.emp, foreach(table_task)(t =>
+            where(equal(e.emp, t.emp_fk))(
+              yields(Task(t.tsk)))))))))))
   }
 
-  implicit val ev1 = Optica.tLinqOptica[λ[x => x]]
-  implicit val ev2 = Model.tLinqModel[λ[x => x]]
+  def run[Repr[_], Obs[_], A](
+      fl: Repr[Fold[Org, A]])(implicit
+      O: Optica[Repr, Obs],
+      T: TLinq[Obs],
+      S: Schema[Obs],
+      P: Project[Obs]): Obs[List[A]] =
+    T.app(fl.getAll)(model[Obs])
+
+  implicit val ev0 = tLinqOptica[λ[x => x]]
+  implicit val ev1 = tLinqModel[λ[x => x]]
 
   val logic = new Logic[Wrap[λ[x => x], ?], λ[x => x]]
 
-  assert(logic.expertise("abstract")(model[λ[x => x]]) == 
-         List("Quality", "Research"))
+  assert(
+    run[Wrap[λ[x => x], ?], λ[x => x], String](logic.expertiseFl("abstract")) ==
+    List("Quality", "Research"))
+
+  def expertsDepts[Repr[_], Obs[_]](
+      u: String)(implicit
+      O: Optica[Repr, Obs],
+      M: Model[Repr],
+      T: TLinq[Obs],
+      P: Project[Obs],
+      S: Schema[Obs]): Obs[List[(String, String)]] = {
+    import M._, T._, O._
+    foreach(run(departments >>> filtered(employees.all((tasks >>> tsk).elem(u)))))(d =>
+    foreach(d.employees)(e =>
+    yields(tuple(d.dpt, e.emp))))
+  }
+
+  assert(expertsDepts[Wrap[λ[x => x], ?], λ[x => x]]("abstract") ==
+    List("Research" -> "Cora", "Research" -> "Drew", "Research" -> "Edna"))
 }
 
