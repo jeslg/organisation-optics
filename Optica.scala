@@ -81,70 +81,119 @@ trait Optica[Repr[_], Obs[_]] {
 
 object Optica {
 
+  sealed abstract class Wrap[Repr[_], A]
+  case class WGetter[Repr[_], S, A](f: Repr[S => A]) 
+      extends Wrap[Repr, Getter[S, A]]
+  case class WAffine[Repr[_], S, A](f: Repr[S => Option[A]]) 
+      extends Wrap[Repr, Affine[S, A]]
+  case class WFold[Repr[_], S, A](f: Repr[S => List[A]]) 
+      extends Wrap[Repr, Fold[S, A]]
+
   // Interprets Optica over TLinq
   implicit def tLinqOptica[Repr[_]](implicit 
-      TL: TLinq[Repr]): Optica[Repr, Repr] = new Optica[Repr, Repr] {
+      TL: TLinq[Repr]): Optica[Wrap[Repr, ?], Repr] = new Optica[Wrap[Repr, ?], Repr] {
     import TL._
 
     /* Getter */
 
-    def comp_gt[S, A, B](u: Repr[Getter[S, A]], d: Repr[Getter[A, B]]) =
-      lam(s => app(d)(app(u)(s)))
+    def comp_gt[S, A, B](
+        u: Wrap[Repr, Getter[S, A]], 
+        d: Wrap[Repr, Getter[A, B]]) = (u, d) match {
+      case (WGetter(f), WGetter(g)) => WGetter(lam(s => app(g)(app(f)(s))))
+    }
 
-    def fork_gt[S, A, B](l: Repr[Getter[S, A]], r: Repr[Getter[S, B]]) = 
-      lam(s => tuple(app(l)(s), app(r)(s)))
+    def fork_gt[S, A, B](
+        l: Wrap[Repr, Getter[S, A]], 
+        r: Wrap[Repr, Getter[S, B]]) = (l, r) match {
+      case (WGetter(f), WGetter(g)) => 
+        WGetter(lam(s => tuple(app(f)(s), app(g)(s))))
+    }
 
-    def id_gt[S] = lam(identity)
+    def id_gt[S] = WGetter(lam(identity))
 
-    def like[S, A](a: A)(implicit B: Base[A]) = lam[S, A](_ =>
+    def like[S, A](a: A)(implicit B: Base[A]) = WGetter(lam[S, A](_ =>
       B match {
         case IntWitness => int(a)
         case BooleanWitness => bool(a)
         case StringWitness => string(a)
-      })
+      }))
 
-    def not[S](b: Repr[Getter[S, Boolean]]) = lam(s => TL.not(app(b)(s)))
+    def not[S](b: Wrap[Repr, Getter[S, Boolean]]) = b match {
+      case WGetter(f) => WGetter(lam(s => TL.not(app(f)(s))))
+    }
 
-    def equal[S, A: Base](x: Repr[Getter[S, A]], y: Repr[Getter[S, A]]) =
-      lam(s => TL.equal(app(x)(s), app(y)(s)))
+    def equal[S, A: Base](
+        x: Wrap[Repr, Getter[S, A]], 
+        y: Wrap[Repr, Getter[S, A]]) = (x, y) match {
+      case (WGetter(f), WGetter(g)) => 
+        WGetter(lam(s => TL.equal(app(f)(s), app(g)(s))))
+    }
 
-    def greaterThan[S](x: Repr[Getter[S, Int]], y: Repr[Getter[S, Int]]) = 
-      lam(s => TL.greaterThan(app(x)(s), app(y)(s)))
+    def greaterThan[S](
+        x: Wrap[Repr, Getter[S, Int]], 
+        y: Wrap[Repr, Getter[S, Int]]) = (x, y) match {
+      case (WGetter(f), WGetter(g)) => 
+        WGetter(lam(s => TL.greaterThan(app(f)(s), app(g)(s))))
+    }
 
-    def subtract[S](x: Repr[Getter[S, Int]], y: Repr[Getter[S, Int]]) =
-      lam(s => TL.subtract(app(x)(s), app(y)(s)))
+    def subtract[S](
+        x: Wrap[Repr, Getter[S, Int]], 
+        y: Wrap[Repr, Getter[S, Int]]) = (x, y) match {
+      case (WGetter(f), WGetter(g)) => 
+        WGetter(lam(s => TL.subtract(app(f)(s), app(g)(s))))
+    }
 
-    def get[S, A](gt: Repr[Getter[S, A]]) = gt
+    def get[S, A](gt: Wrap[Repr, Getter[S, A]]) = gt match {
+      case WGetter(f) => f
+    }
 
     /* Affine */
 
-    def id_af[S] = lam(some)
+    def id_af[S] = WAffine(lam(some))
 
-    def comp_af[S, A, B](u: Repr[Affine[S, A]], d: Repr[Affine[A, B]]) =
-      lam(s => ofold(app(u)(s))(none, lam(app(d))))
+    def comp_af[S, A, B](
+        u: Wrap[Repr, Affine[S, A]], 
+        d: Wrap[Repr, Affine[A, B]]) = (u, d) match {
+      case (WAffine(f), WAffine(g)) => 
+        WAffine(lam(s => ofold(app(f)(s))(none, lam(app(g)))))
+    }
 
-    def filtered[S](p: Repr[Getter[S, Boolean]]) =
-      lam(s => ifs(app(p)(s), some(s), none))
+    def filtered[S](p: Wrap[Repr, Getter[S, Boolean]]) = p match {
+      case WGetter(f) => WAffine(lam(s => ifs(app(f)(s), some(s), none)))
+    }
 
-    def as_af[S, A](gt: Repr[Getter[S, A]]) = lam(s => some(app(gt)(s)))
+    def as_af[S, A](gt: Wrap[Repr, Getter[S, A]]) = gt match {
+      case WGetter(f) => WAffine(lam(s => some(app(f)(s))))
+    }
 
-    def getOpt[S, A](af: Repr[Affine[S, A]]) = af
+    def getOpt[S, A](af: Wrap[Repr, Affine[S, A]]) = af match {
+      case WAffine(f) => f
+    }
 
     /* Fold */
 
-    def id_fl[S] = lam(yields)
+    def id_fl[S] = WFold(lam(yields))
 
-    def comp_fl[S, A, B](u: Repr[Fold[S, A]], d: Repr[Fold[A, B]]) =
-      lam(s => 
-        foreach(app(u)(s))(a =>
-          foreach(app(d)(a))(yields)))
+    def comp_fl[S, A, B](
+        u: Wrap[Repr, Fold[S, A]], 
+        d: Wrap[Repr, Fold[A, B]]) = (u, d) match {
+      case (WFold(f), WFold(g)) =>
+        WFold(lam(s => 
+          foreach(app(f)(s))(a =>
+            foreach(app(g)(a))(yields))))
+    }
 
-    def nonEmpty[S, A](fl: Repr[Fold[S, A]]) = lam(s => exists(app(fl)(s)))
+    def nonEmpty[S, A](fl: Wrap[Repr, Fold[S, A]]) = fl match {
+      case WFold(f) => WGetter(lam(s => exists(app(f)(s))))
+    }
 
-    def as_fl[S, A](af: Repr[Affine[S, A]]) =
-      lam(s => ofold(app(af)(s))(nil, lam(yields)))
+    def as_fl[S, A](af: Wrap[Repr, Affine[S, A]]) = af match {
+      case WAffine(f) => WFold(lam(s => ofold(app(f)(s))(nil, lam(yields))))
+    }
 
-    def getAll[S, A](fl: Repr[Fold[S, A]]) = fl
+    def getAll[S, A](fl: Wrap[Repr, Fold[S, A]]) = fl match {
+      case WFold(f) => f
+    }
   }
 
   trait Syntax {

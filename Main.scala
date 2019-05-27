@@ -1,5 +1,6 @@
 package dev.habla
 
+import Optica._
 import Schema.syntax._
 
 case class DepartmentRel(dpt: String)
@@ -111,7 +112,7 @@ object Main extends App {
   implicit val ev1 = Optica.tLinqOptica[λ[x => x]]
   implicit val ev2 = Model.tLinqModel[λ[x => x]]
 
-  val logic = new Logic[λ[x => x], λ[x => x]]
+  val logic = new Logic[Wrap[λ[x => x], ?], λ[x => x]]
 
   assert(logic.expertise("abstract")(model[λ[x => x]]) == 
          List("Quality", "Research"))

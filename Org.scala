@@ -1,5 +1,6 @@
 package dev.habla
 
+import Optica._
 import Optica.syntax._
 import Project.syntax._
 
@@ -98,20 +99,20 @@ object Model {
 
   implicit def tLinqModel[Repr[_]](implicit 
       TL: TLinq[Repr],
-      PR: Project[Repr]): Model[Repr] = new Model[Repr] {
+      PR: Project[Repr]): Model[Wrap[Repr, ?]] = new Model[Wrap[Repr, ?]] {
     import TL._
 
-    def departments = lam(identity)
+    def departments = WFold(lam(identity))
 
-    def dpt = lam(d => d.dpt)
+    def dpt = WGetter(lam(d => d.dpt))
 
-    def employees = lam(d => d.employees)
+    def employees = WFold(lam(d => d.employees))
 
-    def emp = lam(e => e.emp)
+    def emp = WGetter(lam(e => e.emp))
 
-    def tasks = lam(e => e.tasks)
+    def tasks = WFold(lam(e => e.tasks))
 
-    def tsk = lam(t => t.tsk)
+    def tsk = WGetter(lam(t => t.tsk))
   }
 }
 
@@ -125,7 +126,7 @@ class Logic[Repr[_], Obs[_]](implicit
 
   def expertise(u: String): Obs[Org => List[String]] = expertiseFl(u).getAll
 
-  def expertsFl(u: String): Repr[Org => List[String]] =
+  def expertsFl(u: String): Repr[Fold[Org, String]] =
     departments >>> 
       filtered(employees.all((tasks >>> tsk).elem(u))) >>>
       employees >>>
