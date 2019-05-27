@@ -4,40 +4,33 @@ import Optica._
 import Model._
 import Optica.syntax._
 import Nested.syntax._
-import Schema.syntax._
 
 object Main extends App {
 
-  def model[Repr[_]](implicit 
-      T: TLinq[Repr],
-      S: Schema[Repr],
-      N: Nested[Repr]): Repr[Org] = {
-    import T._, S._, N.{Department, Employee, Task}
-    foreach(table_department)(d =>
-      yields(Department(d.dpt, foreach(table_employee)(e =>
-        where(equal(d.dpt, e.dpt_fk))(
-          yields(Employee(e.emp, foreach(table_task)(t =>
-            where(equal(e.emp, t.emp_fk))(
-              yields(Task(t.tsk)))))))))))
-  }
-
+  // Runs a fold using the adapted relational state as source
   def run[Repr[_], Obs[_], A](
       fl: Repr[Fold[Org, A]])(implicit
       O: Optica[Repr, Obs],
       T: TLinq[Obs],
       S: Schema[Obs],
       N: Nested[Obs]): Obs[List[A]] =
-    T.app(fl.getAll)(model)
+    T.app(fl.getAll)(Schema.apply)
 
   implicit val ev0 = tLinqOptica[λ[x => x]]
   implicit val ev1 = tLinqModel[λ[x => x]]
 
   val logic = new Logic[Wrap[λ[x => x], ?], λ[x => x]]
 
+  // Run expertise from logic
   assert(
     run[Wrap[λ[x => x], ?], λ[x => x], String](logic.expertiseFl("abstract")) ==
     List("Quality", "Research"))
 
+  // Combines comprehensions with optica expressions. We could've used fold
+  // fork composition here to implement this query, but it's not implemented in
+  // the current Optica version. Despite that, there are many other queries
+  // that we can't implement by means of optics (like `compose`), so this
+  // connection turns out to be helpful.
   def expertsDepts[Repr[_], Obs[_]](
       u: String)(implicit
       O: Optica[Repr, Obs],

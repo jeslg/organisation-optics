@@ -4,6 +4,7 @@ case class Department(dpt: String, employees: List[Employee])
 case class Employee(emp: String, tasks: List[Task])
 case class Task(tsk: String)
 
+// Nested schema that we use to (de)construct organisation types
 trait Nested[Repr[_]] {
   
   def dpt(d: Repr[Department]): Repr[String]

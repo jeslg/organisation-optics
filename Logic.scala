@@ -2,6 +2,9 @@ package dev.habla
 
 import Optica.syntax._
 
+// Collects basic optica expressions and observations. Note that `expertsDepts`
+// is defined in the main method instead, to avoid introducing TLinq
+// dependencies here.
 class Logic[Repr[_], Obs[_]](implicit
     O: Optica[Repr, Obs],
     M: Model[Repr]) {

@@ -2,6 +2,7 @@ package dev.habla
 
 import Base._
 
+// Collects `Optica` primitives all together! (Getters, Affines & Folds)
 trait Optica[Repr[_], Obs[_]] {
 
   /* Getter */
@@ -81,6 +82,7 @@ trait Optica[Repr[_], Obs[_]] {
 
 object Optica {
 
+  // Datatype to represent optics as TLinq lambda expressions
   sealed abstract class Wrap[Repr[_], A]
   case class WGetter[Repr[_], S, A](f: Repr[S => A]) 
       extends Wrap[Repr, Getter[S, A]]

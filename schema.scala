@@ -4,6 +4,7 @@ case class DepartmentRel(dpt: String)
 case class EmployeeRel(emp: String, dpt: String)
 case class TaskRel(tsk: String, emp: String)
 
+// Provides ad hoc table primitives and relational datastructure projections
 trait Schema[Repr[_]] {
 
   def table_department: Repr[List[DepartmentRel]]
@@ -24,7 +25,23 @@ trait Schema[Repr[_]] {
 }
 
 object Schema {
+  import syntax._
+
+  // Adapts the relational model into a nested representation
+  def apply[Repr[_]](implicit 
+      T: TLinq[Repr],
+      S: Schema[Repr],
+      N: Nested[Repr]): Repr[Org] = {
+    import T._, S._, N.{Department, Employee, Task}
+    foreach(table_department)(d =>
+      yields(Department(d.dpt, foreach(table_employee)(e =>
+        where(equal(d.dpt, e.dpt_fk))(
+          yields(Employee(e.emp, foreach(table_task)(t =>
+            where(equal(e.emp, t.emp_fk))(
+              yields(Task(t.tsk)))))))))))
+  }
   
+  // Provides straightforward projections and data to play with
   implicit object RSchema extends Schema[λ[x => x]] {
 
     def table_department = List(
